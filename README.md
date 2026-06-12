@@ -1,7 +1,7 @@
-# Pharos DeFi Intelligence Skill
+# Pharos DeFi Intelligence Skill v0.2.0
 
 > **Pharos Agent Carnival — Phase 1 Skill Hackathon**
-> A standardized, reusable Skill module that gives any AI agent on Pharos the ability to analyze token safety, scan DeFi yields, track protocol stats, and assess wallet intelligence.
+> A standardized, reusable Skill module that gives any AI agent on Pharos the ability to analyze token safety with multi-agent consensus, scan DeFi yields on-chain, track protocol stats, and assess wallet intelligence.
 
 ## What It Does
 
@@ -44,53 +44,93 @@ pharos-defi-skill/
     └── deploy-and-verify.sh          ← Deploy + verify script
 ```
 
-## On-Chain Component
+## On-Chain Components
 
-**TokenSafetyRegistry** — deployed on Pharos Atlantic Testnet
+### TokenSafetyRegistry v2 — Multi-Agent Consensus
 
 - **Contract:** `0xdC404a4D7E482e4EC5Ca96215aD45A670Ee82989`
 - **Explorer:** https://atlantic.pharosscan.xyz/address/0xdC404a4D7E482e4EC5Ca96215aD45A670Ee82989
 - **Network:** Atlantic Testnet (Chain ID: 688689)
 
-### Functions
-
 ```solidity
-// Submit a safety report
+// Submit a safety report (multiple agents can report same token)
 updateReport(token, score, isHoneypot, isMintable, buyTax, sellTax, holderCount)
 
-// Quick safety check
+// Quick safety check using consensus
 isTokenSafe(token) → bool
 
-// Full report
-getReport(token) → SafetyReport
+// Batch check multiple tokens
+batchIsTokenSafe(tokens[]) → bool[]
+
+// Get consensus (weighted average from all reporters)
+getConsensus(token) → ConsensusReport
+
+// Check if data is stale (>24h old)
+isConsensusStale(token) → bool
+```
+
+### YieldRegistry — On-Chain DeFi Yield Data
+
+- **Contract:** (deploy on submission)
+- **Network:** Atlantic Testnet (Chain ID: 688689)
+
+```solidity
+// Register a DeFi protocol
+registerProtocol(addr, name, category, contractAddr)
+
+// Submit yield data
+reportYield(protocol, pair, apy, tvlUsd, riskLevel)
+
+// Query yields
+getLatestYield(protocol) → YieldReport
+getYieldHistory(protocol) → YieldReport[]
+isYieldFresh(protocol) → bool
 ```
 
 ### Test Results
 
 ```
-Ran 22 tests — ALL PASSING ✓
+Ran 36 tests — ALL PASSING ✓
+
+TokenSafetyRegistry (21 tests):
   test_owner_is_deployer
   test_transferOwnership
   test_transferOwnership_reverts_notOwner
   test_transferOwnership_reverts_zeroAddress
   test_updateReport_safeToken
-  test_updateReport_unsafeToken
-  test_updateReport_overwrite
   test_updateReport_reverts_zeroAddress
   test_updateReport_reverts_invalidTax
-  test_updateReport_emits_event
-  test_isTokenSafe_safe
-  test_isTokenSafe_lowScore
-  test_isTokenSafe_honeypot
-  test_isTokenSafe_highBuyTax
-  test_isTokenSafe_highSellTax
-  test_isTokenSafe_boundary_buyTax10
-  test_isTokenSafe_boundary_buyTax11
-  test_isTokenSafe_noReport
-  test_getReport_empty
-  test_getReport_multipleTokens
-  testFuzz_updateReport_randomScore
-  testFuzz_isTokenSafe_threshold
+  test_consensus_singleReporter
+  test_consensus_multipleReporters
+  test_consensus_honeypot_majority
+  test_consensus_update_on_new_report
+  test_getMultiReporterReports
+  test_batchIsTokenSafe
+  test_batchIsTokenSafe_empty
+  test_isTokenSafe_consensus
+  test_isTokenSafe_noReports
+  test_isTokenSafe_boundary
+  test_isConsensusStale_fresh
+  test_isConsensusStale_old
+  test_reporterReputation
+  testFuzz_consensus_avgScore
+
+YieldRegistry (15 tests):
+  test_registerProtocol
+  test_registerProtocol_reverts_duplicate
+  test_verifyProtocol
+  test_verifyProtocol_reverts_notOwner
+  test_getProtocolCount
+  test_getAllProtocols
+  test_reportYield
+  test_reportYield_reverts_unregistered
+  test_reportYield_reverts_invalidRisk
+  test_yieldHistory
+  test_isYieldFresh
+  test_isYieldFresh_stale
+  test_reporterReputation
+  test_emits_yieldUpdated
+  test_emits_protocolRegistered
 ```
 
 ## How It Works
